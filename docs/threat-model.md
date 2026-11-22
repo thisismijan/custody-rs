@@ -37,7 +37,7 @@ the control, where the control is delivered (an issue or milestone), and its sta
 - **deferred**: a control we intend to build later than the milestone that first exposes the threat.
 
 Issue references: #1 is milestone M0 (foundations), #2 M1 (Bitcoin), #3 M2 (Ethereum),
-#4 M3 (show it), #5 M4 (threshold signing), #6 M5+ (bonus); #8 to #14 are M0 issues.
+#4 M3 (show it), #5 M4 (threshold signing), #6 M5+ (bonus); #8 to #14 and #16 to #20 are M0 issues.
 
 Correctness invariants referenced here (I1 to I5) are defined in the project's design record:
 I1 deposit uniqueness, I2 withdrawal uniqueness, I3 never over-state available funds,
@@ -236,10 +236,10 @@ common way crypto projects are compromised.
 | | Threat | Control | Delivered in | Status |
 |---|---|---|---|---|
 | S | A typosquatted or malicious crate, or a compromised maintainer | Dependency source allow-list (crates.io only, no git dependencies), advisory scanning against the RustSec database and a licence policy on every pull request; `Cargo.lock` committed and builds refuse to change it (`--locked`) | #8 | planned |
-| T | CI or a third-party GitHub Action is tampered with | Actions pinned to exact commit SHAs, not tags; the CI token is read-only by default; container base images pinned by digest; no workflow triggered by `pull_request_target` or `workflow_run` checks out or runs code from a fork | #8 | planned |
+| T | CI or a third-party GitHub Action is tampered with | Actions pinned to exact commit SHAs, not tags; the CI token is read-only by default; container base images pinned by digest; no workflow triggered by `pull_request_target` or `workflow_run` checks out or runs code from a fork | #8 (follows), #18 (enforced in CI) | planned |
 | T | Unreviewed code reaches `main` | Branch protection: changes reach `main` only through a pull request, CI must pass, no force-pushes. With a single maintainer the merge itself is the review | M0 #1 (repository settings) | planned |
 | R | Nobody can prove who authored a commit | `main` accepts only signed commits (SSH or GPG), tying every commit to the maintainer's key | M0 #1 (repository settings) | planned |
-| I | Secrets leak through the repository or CI logs | GitHub secret scanning with push protection; CI needs no secrets | #8 | planned |
+| I | Secrets leak through the repository or CI logs | GitHub secret scanning with push protection; CI needs no secrets | #18 | planned |
 | D | crates.io is unavailable or a crate is yanked | The lockfile pins exact versions; builds wait for the registry | - | accepted risk |
 | E | A dependency's build script or procedural macro runs malicious code at build time | Few, reviewed dependencies (each new one is called out in review); no git sources | #8 | planned |
 | E | A reviewed dependency still runs malicious code at build time | Residual risk after review and advisory scanning | - | accepted risk |
@@ -290,14 +290,20 @@ regtest, anvil and testnets. It does not cover:
 Several controls above go beyond the acceptance criteria of the existing issues. They are folded
 into the delivery plan in one revision after this document is merged:
 
+> Applied in delivery plan v2 (2026-11-22). Where the tables above name an older issue, the work
+> now sits in: #19 operator keys and bootstrap revocation (from #9), #16 dual control (the new
+> issue below), #20 covered-component, algorithm and body-size rejection (from #10), #17 NATS
+> permissions and signed events (from #13), #18 CI workflow hardening and secret scanning (from #8).
+
 - **Order of #9 and #10:** registration of client keys moves behind the gateway's signed admin
   API, so gateway authentication (#10) comes before key registration (#9), seeded with a
   bootstrap operator key that is revoked once two operators exist.
 - **New M0 issue (dual control):** a second, different operator must approve registering or
   replacing a client's step-up key, changing any client key's scopes, registering or
   re-scoping an operator key, and disabling or revoking an operator key.
-- **#8 (CI):** actions pinned to commit SHAs, read-only CI token, digest-pinned base images, no
-  fork code under `pull_request_target` or `workflow_run`, `--locked` builds, secret scanning.
+- **#8 (CI):** `--locked` builds, digest-pinned base images, and a workflow that itself follows
+  the rules below; **#18** makes CI enforce them: actions pinned to commit SHAs, read-only CI
+  token, no fork code under `pull_request_target` or `workflow_run`, and secret scanning.
 - **#10 (gateway authentication):** the signature verification rules in 3.1 (required covered
   components, recomputed Content-Digest, algorithm fixed per key, clock-skew allowance, nonce
   recorded after verification), body size limit, cheap checks first, nonce pruning.
