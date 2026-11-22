@@ -95,7 +95,7 @@ signs, so the server enforces a fixed policy rather than trusting the signer's c
 | R | A client denies sending a request | Only the client holds its private key, so a valid signature is evidence the server could not have forged. For every state-changing request, the audit record stores the signature evidence (signature input, signature, key id). This evidence is only as strong as key registration, which is dual-controlled (see 3.2) | #11 (account opening), M1 #2 (withdrawals, whitelist changes) | planned |
 | I | One client reads another's accounts | Per-client authorisation: requests for another client's accounts return 403 | #11 | planned |
 | I | An idempotency key collision returns another client's stored response | Idempotency keys are scoped to (client, key); the same key with a different request body returns 409 | #11 | planned |
-| I | Service logs leak secrets or request contents | Logs never contain secrets, signatures or full request bodies; structured logging with an allow-list of fields, in every service | #9 to #14 | planned |
+| I | Service logs leak secrets or request contents | Logs never contain secrets, signatures or full request bodies (the audit trail, not logs, holds signature evidence); structured logging with an allow-list of fields, in every service | #9 to #14 | planned |
 | I | Traffic is read on the network | Signatures give integrity, not confidentiality. The demo runs on localhost over plain HTTP; production requires TLS, normally terminated at a load balancer or proxy in front of the gateway | - | designed only |
 | D | Garbage requests force expensive signature checks; the replay table grows without bound | Cheap checks run before signature verification (key exists, time window, body size limit); the nonce table is pruned by age, so its size is bounded by request rate times the window | #10 | planned |
 | D | Request floods exhaust the gateway | Per-key and per-IP rate limiting | M5+ #6 | deferred |
@@ -120,12 +120,14 @@ it; the same operator cannot both request and approve.
 |---|---|---|---|---|
 | S | Someone impersonates an operator | RFC 9421 signature from a registered operator key with `operator` scopes, under the 3.1 verification rules | #9 (admin API), #10 (verification) | planned |
 | S | The bootstrap key is reused after setup | The bootstrap key can only register the first two operators and is revoked once they exist; any later use is rejected | #9 | planned |
+| S | The bootstrap key holder chooses both initial operators alone, so dual control starts from one person | Registering the first two operators is a trusted setup step, performed once at deployment and recorded in the audit trail | - | accepted risk |
 | T | An admin command is changed in transit | The required covered components and recomputed Content-Digest (3.1) | #9, #10 | planned |
 | R | An operator denies registering or changing a key | The audit record names the operator, the action and the request, and stores the signature evidence | #9 | planned |
 | I | Operator tooling exposes client data | Operator commands require explicit operator scopes; audit listings show metadata, and the server holds no client secrets | #9, #12 | planned |
 | D | The admin interface is flooded | Operators are a small, known group and admin endpoints are not offered to client keys | - | accepted risk |
 | E | One rogue or compromised operator registers an attacker's key for a client | Dual control: registering or replacing a client's step-up key, and changing the scopes of any client key, needs approval from a second, different operator before it takes effect | M0 #1 (new issue) | planned |
 | E | One operator creates a second operator identity they control, defeating dual control | Registering an operator key or changing an operator's scopes is itself dual-controlled | M0 #1 (new issue) | planned |
+| D | One operator revokes the other's key, leaving nobody to approve changes | Disabling or revoking an operator key is also dual-controlled | M0 #1 (new issue) | planned |
 | E | Admin and client traffic share one listener, so a gateway flaw exposes admin functions | Separate admin service on an internal-only listener | - | designed only |
 
 ### 3.3 Services to Postgres
@@ -181,8 +183,8 @@ not about hardware, which a production HSM would add.
 | S | A rogue process asks the HSM to sign | The signer authenticates to the HSM with its own key over a mutually authenticated channel, and the HSM sits on a private Docker network only the signer joins | M1 #2 | planned |
 | T | The signer hands the HSM an opaque digest that matches no real transaction (blind signing) | The HSM receives the full unsigned transaction and computes the signing digest itself, so it never signs a digest it cannot explain and its operation log records what was actually signed. This does not prove the transaction was approved; the HSM has no notion of approval before M5+ | M1 #2 | planned |
 | T | A compromised signer gets the HSM to sign a payment the client never approved | The HSM enforces destination whitelist and amount limits itself, verifying the client's own step-up signatures on whitelist changes and withdrawals, so authorisation runs end to end from client key to HSM | M5+ #6 | deferred |
-| T | A swapped xpub makes new deposit addresses pay an attacker | The xpub is read from the HSM at the key ceremony and stored with its fingerprint; before a deposit address is issued, the HSM re-derives it and confirms it belongs to its key | M1 #2 | planned |
-| T | A mainnet key or address is used, breaking the "never mainnet" rule | Network pinning: the HSM and the address code refuse mainnet chain ids, mainnet address prefixes and mainnet xpub version bytes | M1 #2 | planned |
+| T | A swapped xpub makes new deposit addresses pay an attacker | The xpub is read from the HSM at the key ceremony and stored with its fingerprint. Before a deposit address is issued, the deposit service asks the signer, which asks the HSM, to re-derive it and confirm it belongs to the HSM's key; issuance fails closed, so no address is issued without that confirmation | M1 #2 | planned |
+| T | A mainnet key or address is used, breaking the "never mainnet" rule | Network pinning: the HSM and the address code refuse mainnet chain ids, mainnet address prefixes and mainnet xpub version bytes | M1 #2 (Bitcoin), M2 #3 (Ethereum chain id) | planned |
 | R | A signature cannot be traced to the request that caused it | Append-only HSM operation log (key path, digest, requester, time), linked to the withdrawal's audit record | M1 #2 | planned |
 | I | Private keys are extracted through the API | The HSM API has no export operation; keys exist only inside the HSM process and its encrypted-at-rest store, whose wrapping key is delivered as a Docker secret | M1 #2 | planned |
 | I | A host root user dumps the mock HSM's memory | Real HSM hardware prevents this; the mock cannot | - | designed only |
@@ -200,7 +202,7 @@ them. What a node reports decides what is credited, so a lying node threatens I1
 | S | The watcher talks to something impersonating our node's RPC endpoint | We run our own node per chain and the watcher authenticates to its RPC | M1 #2, M2 #3 | planned |
 | S | Our node is eclipsed on the peer-to-peer network (isolated and fed a false view of the chain) | Several independent nodes per chain, with watchers comparing tips and block hashes and pausing credits on disagreement | - | designed only |
 | T | A node reports a deposit that is not really in the chain, or a reorganisation removes a credited deposit | Credit only at confirmation depth N (I3); block hash and height stored with each credit (I1); reconciliation at tip minus N freezes withdrawals when the ledger shows more than the chain (I5). The response to a reorganisation deeper than N is decided in M1 design | M1 #2, M2 #3 | planned |
-| T | A lying node or a compromised withdrawal processor sets an excessive fee, draining funds as fees | A maximum fee and fee rate per withdrawal, enforced by the withdrawal processor and re-checked by the signer before it requests a signature | M1 #2, M2 #3 | planned |
+| T | A lying node or a compromised withdrawal processor sets an excessive fee, draining funds as fees | A maximum fee and fee rate per withdrawal, enforced by the withdrawal processor and re-checked by the signer before it requests a signature. For Bitcoin the fee is the input total minus the output total, so the signer's re-check is only as good as the input amounts it is given | M1 #2, M2 #3 | planned |
 | R | Nobody can show which chain data caused a credit | Every credit and debit records its block hash, height and transaction reference | M1 #2, M2 #3 | planned |
 | I | A third party learns which addresses we watch | Own nodes only; watched addresses are never sent to an external provider | M1 #2, M2 #3 | planned |
 | D | A node is down, slow or stuck | Watching stalls and credits are delayed (safe: the system under-states); withdrawals queue; a stalled chain tip raises an alert | M1 #2, M2 #3 | planned |
@@ -249,6 +251,7 @@ common way crypto projects are compromised.
 | Traffic between client and gateway is readable in the demo | Client to gateway | designed only | Localhost demo; signatures give integrity; production terminates TLS in front of the gateway |
 | No rate limiting until M5+ | Client to gateway | deferred | No hostile traffic in the local demo; cheap-checks-first and a bounded replay table limit the cost of garbage requests |
 | Admin interface can be flooded | Operator CLI to services | accepted risk | Small, known operator group; admin endpoints refuse client keys |
+| The bootstrap key holder chooses both initial operators | Operator CLI to services | accepted risk | Trust has to start somewhere; it is a one-time, audited deployment step, after which the bootstrap key is revoked |
 | Admin and client traffic share the gateway listener | Operator CLI to services | designed only | Production moves admin to a separate internal-only service |
 | Secrets delivered as Docker secrets, not a secrets manager | Services to Postgres | designed only | Production uses a secrets manager (for example Vault) for issuance and rotation |
 | A database superuser can edit or delete journal and audit rows undetected | Services to Postgres | designed only | Detection needs per-stream hash chains with heads anchored outside the database; not built because the demo has no untrusted superuser and a chain serialises writes per stream |
@@ -291,8 +294,8 @@ into the delivery plan in one revision after this document is merged:
   API, so gateway authentication (#10) comes before key registration (#9), seeded with a
   bootstrap operator key that is revoked once two operators exist.
 - **New M0 issue (dual control):** a second, different operator must approve registering or
-  replacing a client's step-up key, changing any client key's scopes, and registering or
-  re-scoping an operator key.
+  replacing a client's step-up key, changing any client key's scopes, registering or
+  re-scoping an operator key, and disabling or revoking an operator key.
 - **#8 (CI):** actions pinned to commit SHAs, read-only CI token, digest-pinned base images, no
   fork code under `pull_request_target` or `workflow_run`, `--locked` builds, secret scanning.
 - **#10 (gateway authentication):** the signature verification rules in 3.1 (required covered
@@ -306,9 +309,11 @@ into the delivery plan in one revision after this document is merged:
 - **All M0 services (#9 to #14):** one schema and least-privilege role per service, secrets as
   Docker secrets, no secrets or full request bodies in logs.
 - **M1 (#2):** signer to HSM channel and private network, digest rebuilding in the HSM, xpub
-  fingerprint and HSM re-check of deposit addresses, network pinning, maximum fee per
-  withdrawal, derivation subtree restriction, dual-control key ceremony, HSM operation log.
-- **M2 (#3):** maximum fee per withdrawal and the Ethereum node namespace restriction.
+  fingerprint and a fail-closed HSM re-check of deposit addresses (requested through the
+  signer), Bitcoin network pinning, maximum fee per withdrawal, derivation subtree restriction,
+  dual-control key ceremony, HSM operation log.
+- **M2 (#3):** maximum fee per withdrawal, Ethereum chain-id pinning and the Ethereum node
+  namespace restriction.
 - **M4 (#5):** durable single-use nonces and presignatures.
 - **M5+ (#6):** rate limiting, policy enforcement inside the HSM, key backup and recovery.
 - **Repository settings (M0 #1):** branch protection on `main` and required signed commits.
