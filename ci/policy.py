@@ -117,7 +117,11 @@ def is_fixture_dir(relative_parts):
 
 
 def scan(root):
-    for directory, subdirs, files in os.walk(root):
+    def unreadable(error):
+        shown = os.path.relpath(error.filename, root)
+        fail(f"{shown}: cannot be scanned: {error}")
+
+    for directory, subdirs, files in os.walk(root, onerror=unreadable):
         relative = os.path.relpath(directory, root)
         parts = () if relative == "." else tuple(relative.split(os.sep))
         subdirs[:] = [
