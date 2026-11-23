@@ -49,6 +49,11 @@ chain) for the threats this addresses; see proposal.md Impact for which of its c
        config (the test-only source replacement lives in a test-created `CARGO_HOME`), so any key,
        including `source` and the `paths` override, fails. Adding a key is a reviewed edit to
        `ci/policy.py`;
+     - the walk finds a symbolic link, to a file or a directory, anywhere under `<workspace-dir>`
+       outside the skipped directories (operator decision, 2026-11-23, option C): the run fails
+       and prints the link's path. The walk never follows links, so a linked `.cargo` directory,
+       member crate or manifest cannot hide from it. The allowlist of permitted links is empty;
+       adding one is a reviewed edit to `ci/policy.py`;
      - a `Cargo.toml` has a top-level `source`, `patch` or `replace` key, however it is written
        (table header, bare table, dotted key, indented, spaced or quoted);
      - `deny.toml` differs from the pinned policy, or breaks the ignore rule, in D3.
@@ -174,6 +179,8 @@ chain) for the threats this addresses; see proposal.md Impact for which of its c
      `feature-advisory`, `ignore-without-reason`, `ignore-bare-id`, `path-dependency`,
      `source-replacement`, `source-replacement-dotted`, `patched-manifest`,
      `patched-manifest-dotted`, `replace-table`, `unparseable-config`, `config-paths-override`,
+     `symlinked-cargo-dir` (`.cargo` is a link to a directory holding a source replacement),
+     `symlinked-file` (a link to a file elsewhere in the workspace),
      `nested-config` (a source replacement in `<member-crate-dir>/.cargo/config.toml`),
      `legacy-config` (a source replacement in an extensionless `.cargo/config` only),
      `feature-path-dependency` (an optional path dependency outside the members, enabled only by
@@ -222,6 +229,8 @@ done when the evidence is in the MR description); every other scenario maps to s
   one-line `db-urls` or `graph.exclude` change weakens the policy and CI accepts it.
 - **Allowlisting `deny.toml` keys and pinning only the weakening values (option B):** an allowed
   key whose value is not pinned can still be weakened.
+- **Reading through symbolic links, or refusing only a linked `.cargo` (link options A and B):**
+  a linked member crate or manifest still hides from the walk.
 - **Serving the fixture advisory database from a local git HTTP server (advisory option B):**
   unproven against cargo-deny's URL check, and a server per test adds moving parts.
 - **Proving advisory detection only by live evidence (advisory option C):** loses the offline,

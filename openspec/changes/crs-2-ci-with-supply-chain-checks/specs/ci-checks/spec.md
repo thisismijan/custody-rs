@@ -176,3 +176,15 @@ manifest that cannot be parsed SHALL fail the run.
 #### Scenario: Unparseable cargo configuration
 - **WHEN** the checks run on a workspace whose cargo configuration file is not valid TOML
 - **THEN** the run fails and its output names that configuration file
+
+### Requirement: Symbolic links in the workspace fail the run
+The check run SHALL fail when the workspace contains a symbolic link, to a file or a directory,
+outside the build output and git directories, and its output SHALL name the link.
+
+#### Scenario: Cargo configuration directory behind a symbolic link
+- **WHEN** the checks run on a workspace whose `.cargo` directory is a symbolic link to a directory holding a configuration file that replaces the crates.io source
+- **THEN** the run fails and its output names that link
+
+#### Scenario: Symbolic link to a file
+- **WHEN** the checks run on a workspace that contains a symbolic link to a file
+- **THEN** the run fails and its output names that link
