@@ -64,9 +64,11 @@ chain) for the threats this addresses; see proposal.md Impact for which of its c
      that finds every `Cargo.toml` also matches both names in every directory it visits, at any
      depth. The repository contains none and this change creates none.
      Scan scope (operator-confirmed): only `<workspace-dir>` and the directories below it, never
-     parent directories. The real run (`ci/check.sh .`) skips each fixture's own directory
-     (`crates/ci-checks/tests/fixtures/<name>/`), because each fixture is a separate workspace
-     checked by its own test run, and `target/` and `.git/`. It still scans
+     parent directories. The real run (`ci/check.sh .`) skips `target/` and `.git/` at the
+     workspace root entirely. It skips the manifest and cargo config checks inside each fixture's
+     own directory (`crates/ci-checks/tests/fixtures/<name>/`), because each fixture is a separate
+     workspace checked by its own test run, but still walks those directories and refuses any
+     symbolic link in them, without following it. It still scans
      `crates/ci-checks/tests/fixtures/` itself and every directory above it, which are exactly the
      in-repository parents a fixture run's cargo reads config from. A fixture run scans only that
      fixture.

@@ -112,8 +112,8 @@ def check_manifest(path, shown):
             fail(f"{shown}: top-level key {key!r} is not allowed in a manifest")
 
 
-def is_fixture_dir(relative_parts):
-    return len(relative_parts) == len(FIXTURES) + 1 and relative_parts[:-1] == FIXTURES
+def in_fixture_dir(relative_parts):
+    return len(relative_parts) > len(FIXTURES) and relative_parts[: len(FIXTURES)] == FIXTURES
 
 
 def scan(root):
@@ -128,8 +128,8 @@ def scan(root):
             name
             for name in subdirs
             if not (parts == () and name in ("target", ".git"))
-            and not is_fixture_dir(parts + (name,))
         ]
+        fixture = in_fixture_dir(parts)
         for name in subdirs:
             path = os.path.join(directory, name)
             if os.path.islink(path):
@@ -139,6 +139,8 @@ def scan(root):
             shown = os.path.relpath(path, root)
             if os.path.islink(path):
                 fail(f"{shown}: symbolic links are not allowed")
+                continue
+            if fixture:
                 continue
             if name == "Cargo.toml":
                 check_manifest(path, shown)
