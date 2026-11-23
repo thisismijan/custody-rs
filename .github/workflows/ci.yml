@@ -19,6 +19,9 @@ jobs:
       - name: Install the pinned toolchain
         run: rustup toolchain install
       - name: Install cargo-deny
+        working-directory: ${{ runner.temp }}
+        env:
+          RUSTUP_TOOLCHAIN: "1.100.0"
         run: cargo install --locked cargo-deny@0.22.0
       - name: Run the checks
         run: bash ci/check.sh .
