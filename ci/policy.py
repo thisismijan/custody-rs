@@ -125,9 +125,16 @@ def scan(root):
             for name in subdirs
             if name not in ("target", ".git") and not is_fixture_dir(parts + (name,))
         ]
+        for name in subdirs:
+            path = os.path.join(directory, name)
+            if os.path.islink(path):
+                fail(f"{os.path.relpath(path, root)}: symbolic links are not allowed")
         for name in files:
             path = os.path.join(directory, name)
             shown = os.path.relpath(path, root)
+            if os.path.islink(path):
+                fail(f"{shown}: symbolic links are not allowed")
+                continue
             if name == "Cargo.toml":
                 check_manifest(path, shown)
             elif name in ("config", "config.toml") and os.path.basename(directory) == ".cargo":
