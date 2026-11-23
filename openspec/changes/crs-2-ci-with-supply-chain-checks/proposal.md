@@ -11,8 +11,9 @@ service code exists, so every later ticket inherits the checks.
 
 - A minimal Rust workspace is created, with a pinned toolchain and a committed lockfile, so there is
   something to build and check.
-- One check entry point runs, in order: locked build, format check, lint (warnings are errors),
-  tests, and dependency checks (known advisories, licences, sources). Any failure fails the run and
+- One check entry point runs, in order: the policy step, the dependency checks (known advisories,
+  licences, sources), locked build, format check, lint (warnings are errors), and tests. The policy
+  step and the dependency checks both run before anything compiles. Any failure fails the run and
   names the cause.
 - A GitHub Actions workflow runs that entry point on every pull request to `main` (and on pushes to
   `main`).
