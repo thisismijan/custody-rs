@@ -1,7 +1,7 @@
 ## 1. Tests
 
-- [ ] 1.1 Prove Passing pull request (live evidence).
-- [ ] 1.2 Prove Failing pull request (live evidence).
+- [x] 1.1 Prove Passing pull request (live evidence).
+- [x] 1.2 Prove Failing pull request (live evidence).
 - [x] 1.3 Prove Clean workspace passes.
 - [x] 1.4 Prove Build failure.
 - [x] 1.5 Prove Formatting violation.
