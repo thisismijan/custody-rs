@@ -100,6 +100,30 @@ fn dependency_replaced_through_a_replace_table_names_the_manifest() {
 }
 
 #[test]
+fn cargo_configuration_directory_behind_a_symbolic_link_names_the_link() {
+    let workspace = stage("clean");
+    let target = Scratch::new("linked-cargo-dir");
+    write_file(&target.path().join("config.toml"), REPLACEMENT_TABLES);
+    std::os::unix::fs::symlink(target.path(), workspace.path().join(".cargo")).unwrap();
+    let result = run(workspace.path());
+    assert_refused_before_cargo(&result);
+    result.assert_contains(".cargo");
+}
+
+#[test]
+fn symbolic_link_to_a_file_names_the_link() {
+    let workspace = stage("clean");
+    std::os::unix::fs::symlink(
+        workspace.path().join("src/lib.rs"),
+        workspace.path().join("linked-source.rs"),
+    )
+    .unwrap();
+    let result = run(workspace.path());
+    assert_refused_before_cargo(&result);
+    result.assert_contains("linked-source.rs");
+}
+
+#[test]
 fn manifest_that_cannot_be_parsed_fails_the_run() {
     let result = run_with_manifest_edit(|manifest| format!("{manifest}\nnot valid = = toml\n"));
     assert_refused_before_cargo(&result);
