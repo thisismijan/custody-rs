@@ -68,10 +68,10 @@ deny() {
 }
 
 step policy policy
+step deny deny
 step build cargo build --locked --workspace --all-targets --all-features
 step fmt cargo fmt --all -- --check
 step clippy cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 step test cargo test --locked --workspace --all-targets --all-features
-step deny deny
 
-echo "all checks passed: policy build fmt clippy test deny"
+echo "all checks passed: policy deny build fmt clippy test"

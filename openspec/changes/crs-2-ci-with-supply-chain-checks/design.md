@@ -70,17 +70,20 @@ chain) for the threats this addresses; see proposal.md Impact for which of its c
      `crates/ci-checks/tests/fixtures/` itself and every directory above it, which are exactly the
      in-repository parents a fixture run's cargo reads config from. A fixture run scans only that
      fixture.
-  1. `cargo build --locked --workspace --all-targets --all-features`
-  2. `cargo fmt --all -- --check`
-  3. `cargo clippy --locked --workspace --all-targets --all-features -- -D warnings`
-  4. `cargo test --locked --workspace --all-targets --all-features`
-  5. `cargo deny` (exact commands below) with the repository-root `deny.toml`
+  1. `deny`: `cargo deny` (exact commands below) with the repository-root `deny.toml`
      (always the committed file, located relative to the script, never one inside the checked
      workspace), plus a path-dependency check over
      `cargo metadata --locked --all-features --format-version 1`: any package in the resolve with
      no registry source that is not a workspace member fails, naming the crate and path.
      `--all-features` keeps an optional path dependency behind a non-default feature in the
-     resolve.
+     resolve. It runs directly after `policy` and before anything compiles (review decision on
+     !22, 2026-11-23, operator option A, superseding the earlier order with `deny` last): it needs
+     only `cargo metadata` and the lockfile, so a refused dependency's build script or proc-macro
+     never runs, in CI or locally. A stale lockfile therefore fails here, at `deny`.
+  2. `cargo build --locked --workspace --all-targets --all-features`
+  3. `cargo fmt --all -- --check`
+  4. `cargo clippy --locked --workspace --all-targets --all-features -- -D warnings`
+  5. `cargo test --locked --workspace --all-targets --all-features`
 - Before each step it prints a line `check: <name>` and on failure `FAILED: <name>`, so output
   names the failing check. Tool output is passed through unchanged and supplies the rest of what
   the scenarios require: `cargo fmt --check` prints the unformatted file's path, `cargo test` prints
@@ -114,7 +117,7 @@ chain) for the threats this addresses; see proposal.md Impact for which of its c
   test.
 - Exact message when the override is refused (`CI=true` and `CI_CHECK_ADVISORY_DB` set):
   `CI_CHECK_ADVISORY_DB is not allowed in CI`, printed before any check runs, exit status 1.
-- After the last check it prints `all checks passed: policy build fmt clippy test deny`, so a
+- After the last check it prints `all checks passed: policy deny build fmt clippy test`, so a
   passing run shows what it ran.
 - Why a script rather than steps in the workflow: the same command runs locally and in CI, and it
   is the seam the committed tests drive (see Test seams).
