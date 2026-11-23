@@ -79,8 +79,9 @@ chain) for the threats this addresses; see proposal.md Impact for which of its c
 - Before each step it prints a line `check: <name>` and on failure `FAILED: <name>`, so output
   names the failing check. Tool output is passed through unchanged and supplies the rest of what
   the scenarios require: `cargo fmt --check` prints the unformatted file's path, `cargo test` prints
-  the failing test's name, cargo prints `the lock file ... needs to be updated but --locked was
-  passed` for a stale lockfile, and `cargo deny` prints the crate with the advisory id, licence or
+  the failing test's name, cargo 1.100 prints `cannot update the lock file <path> because --locked was passed to
+  prevent this` for a stale lockfile (observed at the pinned version; older cargo printed `needs
+  to be updated but --locked was passed`), and `cargo deny` prints the crate with the advisory id, licence or
   source. Tests assert these substrings.
 - Every run executes every check; there is no skip setting. The only override is the test-only
   advisory database folder `CI_CHECK_ADVISORY_DB`, refused when `CI=true`.
