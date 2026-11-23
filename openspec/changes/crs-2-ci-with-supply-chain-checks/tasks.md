@@ -32,9 +32,9 @@
 - [x] 1.30 Prove Patch written as a dotted key.
 - [x] 1.31 Prove Dependency replaced through a replace table.
 - [x] 1.32 Prove Unparseable cargo configuration.
-- [ ] 1.33 Prove Cargo configuration directory behind a symbolic link.
-- [ ] 1.34 Prove Symbolic link to a file.
+- [x] 1.33 Prove Cargo configuration directory behind a symbolic link.
+- [x] 1.34 Prove Symbolic link to a file.
 
 ## 2. Implementation
 
-- [ ] 2.1 Implement the specified behaviour so every scenario above holds.
+- [x] 2.1 Implement the specified behaviour so every scenario above holds.
