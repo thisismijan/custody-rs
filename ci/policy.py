@@ -123,7 +123,8 @@ def scan(root):
         subdirs[:] = [
             name
             for name in subdirs
-            if name not in ("target", ".git") and not is_fixture_dir(parts + (name,))
+            if not (parts == () and name in ("target", ".git"))
+            and not is_fixture_dir(parts + (name,))
         ]
         for name in subdirs:
             path = os.path.join(directory, name)
