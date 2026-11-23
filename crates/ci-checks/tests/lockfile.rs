@@ -9,6 +9,7 @@ fn missing_lockfile_fails_before_building() {
     result.assert_failed_at("policy");
     result.assert_contains("Cargo.lock is missing");
     result.assert_not_contains("check: build");
+    result.assert_not_contains("check: deny");
 }
 
 #[test]

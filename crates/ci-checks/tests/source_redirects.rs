@@ -26,6 +26,7 @@ fn run_with_manifest_edit(edit: impl Fn(&str) -> String) -> Run {
 fn assert_refused_before_cargo(result: &Run) {
     result.assert_failed_at("policy");
     result.assert_not_contains("check: build");
+    result.assert_not_contains("check: deny");
 }
 
 #[test]
