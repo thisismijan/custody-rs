@@ -13,10 +13,7 @@ fn advisory_database_override_is_refused_in_ci_before_any_check() {
         &Options {
             ci: true,
             skip_advisory_db: true,
-            env: vec![
-                ("CI_CHECK_ADVISORY_DB", "/nonexistent/advisory-db"),
-                ("CI_CHECK_ADVISORY_DB_URL", "/nonexistent/advisory-repo"),
-            ],
+            env: vec![("CI_CHECK_ADVISORY_DB", "/nonexistent/advisory-db")],
             ..Options::default()
         },
     );

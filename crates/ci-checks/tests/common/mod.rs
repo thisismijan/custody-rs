@@ -7,6 +7,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 pub const ADVISORY_ID: &str = "RUSTSEC-2023-0001";
 pub const VULN_CRATE: &str = "custody-rs-fixture-vuln";
+// cargo-deny names a database folder after a hash of this URL, which check.sh puts in its temp config.
+const ADVISORY_DB_URL: &str = "https://example.invalid/advisory-db";
+const ADVISORY_DB_FOLDER: &str = "advisory-db-79ba8843f8f3e7ce";
 const CRATES_IO: &str = "registry+https://github.com/rust-lang/crates.io-index";
 const GIT_IDENTITY: [&str; 6] = [
     "-c",
@@ -171,9 +174,7 @@ pub fn run_with(workspace: &Path, options: &Options) -> Run {
     }
     if !options.skip_advisory_db {
         let db = advisory_db(scratch.path());
-        command
-            .env("CI_CHECK_ADVISORY_DB", &db.root)
-            .env("CI_CHECK_ADVISORY_DB_URL", &db.repo);
+        command.env("CI_CHECK_ADVISORY_DB", &db.root);
     }
     if let Some(home) = options.cargo_home {
         command.env("CARGO_HOME", home);
@@ -194,7 +195,6 @@ pub fn run_with(workspace: &Path, options: &Options) -> Run {
 
 struct AdvisoryDb {
     root: PathBuf,
-    repo: PathBuf,
 }
 
 fn git(dir: &Path, args: &[&str]) -> String {
@@ -243,28 +243,11 @@ fn advisory_db(scratch: &Path) -> AdvisoryDb {
 
     let root = scratch.join("advisory-db");
     fs::create_dir_all(&root).expect("create advisory db root");
-    let config = scratch.join("fetch-deny.toml");
-    write_file(
-        &config,
-        &format!(
-            "[advisories]\ndb-path = \"{}\"\ndb-urls = [\"file://{}\"]\n",
-            root.display(),
-            repo.display()
-        ),
-    );
-    let fetched = Command::new("cargo")
-        .args(["deny", "--config"])
-        .arg(&config)
-        .args(["fetch", "db"])
-        .current_dir(scratch)
-        .output()
-        .expect("cargo deny is available");
-    assert!(
-        fetched.status.success(),
-        "cargo deny fetch of the fixture advisory database failed: {}",
-        String::from_utf8_lossy(&fetched.stderr)
-    );
-    AdvisoryDb { root, repo }
+    let repo_arg = repo.display().to_string();
+    let target = root.join(ADVISORY_DB_FOLDER);
+    let target_arg = target.display().to_string();
+    git(scratch, &["clone", "-q", &repo_arg, &target_arg]);
+    AdvisoryDb { root }
 }
 
 pub struct Registry {

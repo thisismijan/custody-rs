@@ -83,31 +83,30 @@ chain) for the threats this addresses; see proposal.md Impact for which of its c
   passed` for a stale lockfile, and `cargo deny` prints the crate with the advisory id, licence or
   source. Tests assert these substrings.
 - Every run executes every check; there is no skip setting. The only override is the test-only
-  advisory database pair `CI_CHECK_ADVISORY_DB` (database root directory) and
-  `CI_CHECK_ADVISORY_DB_URL` (local git repository it is cloned from), both refused when
-  `CI=true`. Setting only one of the two fails the run, printing
-  `CI_CHECK_ADVISORY_DB and CI_CHECK_ADVISORY_DB_URL must be set together`.
-- Advisory database wiring (operator-confirmed): the committed `deny.toml` sets no `db-path` and
-  no `db-urls`, so by default `cargo deny` fetches the live RustSec database. cargo-deny has no
-  command-line flag for the database location, only the `[advisories]` keys `db-path` (root
-  directory the databases are cloned into) and `db-urls`. So when `CI_CHECK_ADVISORY_DB` is set,
-  the script copies the committed `deny.toml` to a temp file, adds to its `[advisories]` table
-  `db-path = "<CI_CHECK_ADVISORY_DB>"` and `db-urls = ["file://<path of the fixture advisory git
-  repository>"]` (the test passes that repository path as `CI_CHECK_ADVISORY_DB_URL`, also refused
-  when `CI=true`), and runs
-  `cargo deny --locked --config <temp file> check --disable-fetch advisories licenses sources`.
-  `--locked` and `--config` are common options and go before `check`; `--locked` stops
-  cargo-deny's own metadata resolution from updating `Cargo.lock`, as every cargo step here;
-  `--disable-fetch` skips only the advisory database fetch (unlike `--offline`). Without the
-  override the run is
-  `cargo deny --locked --config <repo-root>/deny.toml check advisories licenses sources`.
-  If the pinned cargo-deny does not accept `--locked` there, stop and report (see Risks). The directory
-  layout cargo-deny expects under `db-path` is not documented, so the test that creates the
-  fixture database lets cargo-deny's own layout stand: it runs once with the override and
-  asserts the advisory is found. If `--disable-fetch` is not accepted at the pinned version, or
-  the database is not found, stop and report (see Risks); never fall back to the live database
-  in a test.
-- Exact message when an override is refused (`CI=true` and either override variable set):
+  advisory database folder `CI_CHECK_ADVISORY_DB`, refused when `CI=true`.
+- Advisory database wiring (operator decision, 2026-11-23, option A; replaces the earlier
+  `file://` and `--disable-fetch` wiring, which cargo-deny 0.22.0 refuses): the committed
+  `deny.toml` sets no `db-path` and no `db-urls`, so by default `cargo deny` fetches the live
+  RustSec database. Observed at 0.22.0: `db-urls` must be a URL with a domain name (`file://` is
+  refused), `check` has no `--disable-fetch`, and with the global `--offline` option cargo-deny
+  reads the database already present at `<db-path>/advisory-db-<hash of the URL>` without
+  fetching. So when `CI_CHECK_ADVISORY_DB` is set, the script copies the committed `deny.toml` to
+  a temp file, adds to its `[advisories]` table `db-path = "<CI_CHECK_ADVISORY_DB>"` and the fixed
+  placeholder `db-urls = ["https://example.invalid/advisory-db"]`, and runs
+  `cargo deny --offline --locked --config <temp file> check advisories licenses sources`.
+  `--offline`, `--locked` and `--config` are global options and go before `check`; `--locked`
+  stops cargo-deny's own metadata resolution from updating `Cargo.lock`, as every cargo step
+  here. Without the override the run is
+  `cargo deny --locked --config <repo-root>/deny.toml check advisories licenses sources`, with no
+  `--offline`, so CI always fetches the live database.
+- Fixture database seeding: for the placeholder URL above, cargo-deny 0.22.0 uses the folder
+  name `advisory-db-79ba8843f8f3e7ce` (observed, not documented). The test helper creates the
+  fixture advisory git repository and clones it into
+  `<CI_CHECK_ADVISORY_DB>/advisory-db-79ba8843f8f3e7ce`, keeping that name as one named constant
+  next to the placeholder URL. If a cargo-deny upgrade changes the name, the advisory tests fail
+  in setup and the constant is updated with the pin; never fall back to the live database in a
+  test.
+- Exact message when the override is refused (`CI=true` and `CI_CHECK_ADVISORY_DB` set):
   `CI_CHECK_ADVISORY_DB is not allowed in CI`, printed before any check runs, exit status 1.
 - After the last check it prints `all checks passed: policy build fmt clippy test deny`, so a
   passing run shows what it ran.
@@ -161,7 +160,8 @@ chain) for the threats this addresses; see proposal.md Impact for which of its c
    output text. Fixtures: `clean`, `build-error`, `unformatted`, `lint-warning`, `failing-test`,
    `stale-lockfile`, `advisory`, `advisory-ignored`, `gpl-licence`, `git-source`.
    - Controlled fakes: a fixture advisory database (a small git repository in RustSec format,
-     created by the test in a temp dir) with one advisory for a fixture crate; supply-chain fixtures
+     created by the test in a temp dir and cloned into the seeded folder described in D2) with one
+     advisory for a fixture crate; supply-chain fixtures
      resolve crates from a local vendored directory that replaces crates.io through a test-only
      `CARGO_HOME` config created by the test, never a repository file (source replacement keeps the
      crates.io source id, so advisory and licence matching behave as for a real crates.io crate);
@@ -221,6 +221,10 @@ done when the evidence is in the MR description); every other scenario maps to s
   one-line `db-urls` or `graph.exclude` change weakens the policy and CI accepts it.
 - **Allowlisting `deny.toml` keys and pinning only the weakening values (option B):** an allowed
   key whose value is not pinned can still be weakened.
+- **Serving the fixture advisory database from a local git HTTP server (advisory option B):**
+  unproven against cargo-deny's URL check, and a server per test adds moving parts.
+- **Proving advisory detection only by live evidence (advisory option C):** loses the offline,
+  repeatable proof of the advisory scenarios.
 - **A `CI_CHECK_ONLY` setting to run a subset of checks:** fails open when misspelt, empty, or set
   in CI.
 
@@ -246,10 +250,13 @@ done when the evidence is in the MR description); every other scenario maps to s
 - [Cargo adds a new config key that redirects dependencies] → the config allowlist already
   refuses it; manifests are checked by named keys because they legitimately hold many keys.
 - [cargo-deny's handling of a local advisory database or source replacement, or its option
-  placement for `--locked`, `--config` and `--disable-fetch`, differs from the assumption above] → the first fixture test written proves it; if it fails, stop and report
+  placement for `--offline`, `--locked` and `--config`, differs from the assumption above] → the first fixture test written proves it; if it fails, stop and report
   rather than weaken the check.
 - [Live RustSec database can fail CI on a new advisory unrelated to the change] → intended
   behaviour; resolve by updating the dependency or recording an ignore with a reason.
+- [The seeded database folder name is an undocumented cargo-deny detail] → the advisory tests
+  fail loudly in setup if it changes, and the name is one constant updated with the cargo-deny
+  pin (operator chose this over a local HTTP server or live-only evidence).
 - [`ubuntu-latest` changes over time] → acceptable for now; the toolchain itself is pinned.
 
 ## Migration Plan
