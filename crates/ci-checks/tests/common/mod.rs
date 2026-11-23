@@ -103,27 +103,50 @@ pub struct Run {
 }
 
 impl Run {
+    fn summary(&self) -> String {
+        const PREFIXES: [&str; 5] = [
+            "check: ",
+            "FAILED: ",
+            "all checks passed",
+            "error",
+            "CI_CHECK_ADVISORY_DB",
+        ];
+        self.text
+            .lines()
+            .filter(|line| PREFIXES.iter().any(|prefix| line.starts_with(prefix)))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
     pub fn assert_passed(&self) {
-        assert!(self.success, "expected success, output:\n{}", self.text);
+        assert!(
+            self.success,
+            "expected success, output:\n{}",
+            self.summary()
+        );
         assert!(
             self.text
                 .contains("all checks passed: policy build fmt clippy test deny"),
             "missing pass line, output:\n{}",
-            self.text
+            self.summary()
         );
     }
 
     pub fn assert_failed_at(&self, check: &str) {
-        assert!(!self.success, "expected failure, output:\n{}", self.text);
+        assert!(
+            !self.success,
+            "expected failure, output:\n{}",
+            self.summary()
+        );
         assert!(
             self.text.contains(&format!("FAILED: {check}")),
             "expected FAILED: {check}, output:\n{}",
-            self.text
+            self.summary()
         );
         assert!(
             !self.text.contains("all checks passed"),
             "unexpected pass line, output:\n{}",
-            self.text
+            self.summary()
         );
     }
 
@@ -131,7 +154,7 @@ impl Run {
         assert!(
             self.text.contains(needle),
             "expected output to contain {needle:?}, output:\n{}",
-            self.text
+            self.summary()
         );
     }
 
@@ -139,7 +162,7 @@ impl Run {
         assert!(
             !self.text.contains(needle),
             "expected output not to contain {needle:?}, output:\n{}",
-            self.text
+            self.summary()
         );
     }
 }
