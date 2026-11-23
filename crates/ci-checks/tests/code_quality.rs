@@ -39,7 +39,6 @@ fn failing_test_names_the_failing_test() {
     let result = run(workspace.path());
     result.assert_failed_at("test");
     result.assert_contains("deliberately_failing_test");
-    result.assert_not_contains("check: deny");
 }
 
 #[test]

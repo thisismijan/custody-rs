@@ -23,7 +23,7 @@ fn lockfile_out_of_date_fails_and_says_it_needs_updating() {
     let workspace = stage("stale-lockfile");
     let before = std::fs::read_to_string(workspace.path().join("Cargo.lock")).unwrap();
     let result = run(workspace.path());
-    result.assert_failed_at("build");
+    result.assert_failed_at("deny");
     result.assert_contains("cannot update the lock file");
     result.assert_contains("because --locked was passed");
     let after = std::fs::read_to_string(workspace.path().join("Cargo.lock")).unwrap();

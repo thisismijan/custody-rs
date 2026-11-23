@@ -126,7 +126,7 @@ impl Run {
         );
         assert!(
             self.text
-                .contains("all checks passed: policy build fmt clippy test deny"),
+                .contains("all checks passed: policy deny build fmt clippy test"),
             "missing pass line, output:\n{}",
             self.summary()
         );
