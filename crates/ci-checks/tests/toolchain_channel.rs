@@ -45,10 +45,25 @@ fn assert_rejected(outcome: &Outcome) {
 
 #[test]
 fn repository_toolchain_file_prints_the_pinned_channel() {
-    let outcome = channel_of(&repo_root().join("rust-toolchain.toml"));
+    let file = repo_root().join("rust-toolchain.toml");
+    let pinned = std::fs::read_to_string(&file)
+        .expect("rust-toolchain.toml is readable")
+        .lines()
+        .find_map(|line| {
+            line.strip_prefix("channel = \"")
+                .and_then(|rest| rest.strip_suffix('"'))
+                .map(str::to_owned)
+        })
+        .expect("rust-toolchain.toml has a `channel = \"...\"` line");
+    let outcome = channel_of(&file);
     assert!(outcome.success, "stderr:\n{}", outcome.stderr);
-    assert_eq!(outcome.stdout.trim_end(), "1.100.0");
-    assert_eq!(outcome.stdout.trim_end().lines().count(), 1);
+    assert_eq!(outcome.stdout, format!("{pinned}\n"));
+    assert!(
+        pinned
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-')),
+        "pinned channel `{pinned}` has a disallowed character"
+    );
 }
 
 #[test]
