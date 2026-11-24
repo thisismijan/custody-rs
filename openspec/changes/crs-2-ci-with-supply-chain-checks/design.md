@@ -164,6 +164,12 @@ chain) for the threats this addresses; see proposal.md Impact for which of its c
   `python3` runs the policy step (no setup action); `ci/policy.py` refuses a version below 3.11.
   The workflow reads the toolchain channel through `ci/toolchain-channel.sh`, which accepts
   exactly one well-formed `[toolchain]` channel line, before exporting it.
+  The `cargo-deny` install runs with `working-directory: ${{ runner.temp }}`, outside the
+  checkout, so a committed cargo config file or toolchain file cannot affect how it is built
+  before the policy step refuses it; it uses the channel exported as `RUSTUP_TOOLCHAIN`, the
+  same value the later checks step uses from `rust-toolchain.toml`. The `checks` job sets
+  `timeout-minutes: 30`, so a stalled step cannot hold the runner for GitHub's 360-minute
+  default once `checks` is a required status check.
 - Third-party actions are referenced by full commit SHA from the start (cheap now; CRS-18 adds the
   lint that enforces it).
 
