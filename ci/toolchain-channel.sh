@@ -1,30 +1,43 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-fail() {
-  echo "toolchain-channel: $1" >&2
-  exit 1
-}
+exec python3 -I - "${1:-}" <<'PY'
+import re
+import sys
 
-file=${1:-}
-[ -f "$file" ] || fail "no such file: $file"
+if sys.version_info < (3, 11):
+    print("toolchain-channel: python 3.11 or later is required", file=sys.stderr)
+    sys.exit(1)
 
-table=""
-count=0
-value=""
-value_table=""
-while IFS= read -r line || [ -n "$line" ]; do
-  if [[ $line =~ ^\[.*\]$ ]]; then
-    table=$line
-  elif [[ $line =~ ^channel\ =\ \"(.*)\"$ ]]; then
-    count=$((count + 1))
-    value=${BASH_REMATCH[1]}
-    value_table=$table
-  fi
-done < "$file"
+import tomllib
 
-[ "$count" -eq 1 ] || fail "expected exactly one channel line in $file, found $count"
-[ "$value_table" = "[toolchain]" ] || fail "the channel line is not inside the [toolchain] table"
-[[ $value =~ ^[0-9A-Za-z._-]+$ ]] || fail "the channel value contains disallowed characters"
 
-printf '%s\n' "$value"
+def fail(message):
+    print(f"toolchain-channel: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+path = sys.argv[1]
+try:
+    with open(path, "rb") as handle:
+        data = tomllib.load(handle)
+except FileNotFoundError:
+    fail(f"no such file: {path}")
+except (ValueError, OSError) as error:
+    fail(f"{path} cannot be read as TOML: {error}")
+
+extra = sorted(set(data) - {"toolchain"})
+if extra:
+    fail(f"{path} may contain only the [toolchain] table, found: {', '.join(extra)}")
+
+table = data.get("toolchain")
+if not isinstance(table, dict):
+    fail(f"{path} has no [toolchain] table")
+channel = table.get("channel")
+if not isinstance(channel, str):
+    fail("toolchain.channel is missing or is not a string")
+if not re.fullmatch(r"[0-9A-Za-z._-]+", channel):
+    fail("the channel value contains disallowed characters")
+
+print(channel)
+PY

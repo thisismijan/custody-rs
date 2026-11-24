@@ -162,8 +162,10 @@ chain) for the threats this addresses; see proposal.md Impact for which of its c
 - Steps: checkout, install the pinned toolchain from `rust-toolchain.toml`, install `cargo-deny`
   at a pinned version with `cargo install --locked`, run `ci/check.sh .`. The runner's own
   `python3` runs the policy step (no setup action); `ci/policy.py` refuses a version below 3.11.
-  The workflow reads the toolchain channel through `ci/toolchain-channel.sh`, which accepts
-  exactly one well-formed `[toolchain]` channel line, before exporting it.
+  The workflow reads the toolchain channel through `ci/toolchain-channel.sh`, which parses
+  `rust-toolchain.toml` with `tomllib` and accepts only a string `toolchain.channel` matching
+  `^[0-9A-Za-z._-]+$`, and refuses a file with any table other than `[toolchain]`, before
+  exporting it.
   The `cargo-deny` install runs with `working-directory: ${{ runner.temp }}`, outside the
   checkout, so a committed cargo config file or toolchain file cannot affect how it is built
   before the policy step refuses it; it uses the channel exported as `RUSTUP_TOOLCHAIN`, the
