@@ -79,3 +79,34 @@ fn file_without_a_channel_is_rejected() {
     let outcome = channel_of_text("[toolchain]\ncomponents = [\"rustfmt\"]\n");
     assert_rejected(&outcome);
 }
+
+#[test]
+fn channel_under_a_commented_other_header_is_rejected() {
+    let outcome = channel_of_text(
+        "[toolchain]\ncomponents = []\n\n[other] # comment\nchannel = \"1.100.0\"\n",
+    );
+    assert_rejected(&outcome);
+}
+
+#[test]
+fn every_valid_toml_spelling_of_the_channel_is_read() {
+    let spellings = [
+        "[ toolchain ]\nchannel = \"1.99.2\"\n",
+        "[toolchain] # pinned\nchannel = \"1.99.2\"\n",
+        "[toolchain]\nchannel=\"1.99.2\"\n",
+        "[toolchain]\nchannel = '1.99.2'\n",
+        "[toolchain]\n\"channel\" = \"1.99.2\"\n",
+        "[toolchain]\nchannel = \"1.99.2\" # pinned\n",
+        "toolchain.channel = \"1.99.2\"\n",
+        "toolchain = { channel = \"1.99.2\" }\n",
+    ];
+    for text in spellings {
+        let outcome = channel_of_text(text);
+        assert!(
+            outcome.success,
+            "input:\n{text}\nstderr:\n{}",
+            outcome.stderr
+        );
+        assert_eq!(outcome.stdout, "1.99.2\n", "input:\n{text}");
+    }
+}
