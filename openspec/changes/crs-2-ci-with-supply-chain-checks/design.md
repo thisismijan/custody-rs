@@ -162,6 +162,8 @@ chain) for the threats this addresses; see proposal.md Impact for which of its c
 - Steps: checkout, install the pinned toolchain from `rust-toolchain.toml`, install `cargo-deny`
   at a pinned version with `cargo install --locked`, run `ci/check.sh .`. The runner's own
   `python3` runs the policy step (no setup action); `ci/policy.py` refuses a version below 3.11.
+  The workflow reads the toolchain channel through `ci/toolchain-channel.sh`, which accepts
+  exactly one well-formed `[toolchain]` channel line, before exporting it.
 - Third-party actions are referenced by full commit SHA from the start (cheap now; CRS-18 adds the
   lint that enforces it).
 

@@ -39,6 +39,7 @@ None.
     `crates/ci-checks/tests/` (new).
   - `ci/check.sh` (new): the check entry point.
   - `ci/policy.py` (new): the TOML policy checker.
+  - `ci/toolchain-channel.sh` (new): prints the pinned toolchain channel after validating it.
   - `deny.toml` (new): the dependency policy.
   - `.github/workflows/ci.yml` (new): the workflow.
 - Not created: any cargo config file (`<workspace-dir>/.cargo/config.toml`, `<workspace-dir>/.cargo/config`, or the same names

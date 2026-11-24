@@ -21,11 +21,7 @@ jobs:
         run: rustup toolchain install
       - name: Read the pinned toolchain channel
         run: |
-          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
-          if [ -z "$channel" ]; then
-            echo "no channel found in rust-toolchain.toml" >&2
-            exit 1
-          fi
+          channel=$(bash ci/toolchain-channel.sh rust-toolchain.toml)
           echo "RUSTUP_TOOLCHAIN=$channel" >> "$GITHUB_ENV"
       - name: Install cargo-deny
         working-directory: ${{ runner.temp }}
