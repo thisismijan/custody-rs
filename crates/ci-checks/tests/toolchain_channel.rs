@@ -110,3 +110,45 @@ fn every_valid_toml_spelling_of_the_channel_is_read() {
         assert_eq!(outcome.stdout, "1.99.2\n", "input:\n{text}");
     }
 }
+
+fn assert_rejected_because(text: &str, cause: &str) {
+    let outcome = channel_of_text(text);
+    assert_rejected(&outcome);
+    assert!(
+        outcome.stderr.contains(cause),
+        "input:\n{text}\nexpected stderr to name `{cause}`, got:\n{}",
+        outcome.stderr
+    );
+}
+
+#[test]
+fn two_channel_keys_in_the_toolchain_table_are_refused_as_invalid_toml() {
+    assert_rejected_because(
+        "[toolchain]\nchannel = \"1.1\"\nchannel = \"2.2\"\n",
+        "cannot be read as TOML",
+    );
+}
+
+#[test]
+fn a_channel_only_under_another_table_is_refused_for_that_table() {
+    assert_rejected_because(
+        "[other]\nchannel = \"1.1\"\n",
+        "may contain only the [toolchain] table, found: other",
+    );
+}
+
+#[test]
+fn a_valid_toolchain_channel_beside_another_table_is_refused_for_that_table() {
+    assert_rejected_because(
+        "[toolchain]\nchannel = \"1.1\"\n\n[other]\nchannel = \"2.2\"\n",
+        "may contain only the [toolchain] table, found: other",
+    );
+}
+
+#[test]
+fn a_toolchain_table_without_a_channel_is_refused_as_missing_the_channel() {
+    assert_rejected_because(
+        "[toolchain]\ncomponents = [\"rustfmt\"]\n",
+        "toolchain.channel is missing",
+    );
+}
