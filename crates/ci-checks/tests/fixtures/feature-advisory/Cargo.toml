@@ -1,0 +1,13 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+extra = ["dep:custody-rs-fixture-vuln"]
+
+[workspace]
+
+[dependencies]
+custody-rs-fixture-vuln = { version = "0.1", optional = true }

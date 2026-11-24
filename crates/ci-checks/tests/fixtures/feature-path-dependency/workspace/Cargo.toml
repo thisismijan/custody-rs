@@ -1,0 +1,13 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+extra = ["dep:custody-rs-fixture-outside"]
+
+[workspace]
+
+[dependencies]
+custody-rs-fixture-outside = { path = "../outside-crate", optional = true }

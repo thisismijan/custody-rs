@@ -1,0 +1,169 @@
+mod common;
+
+use common::{Scratch, repo_root, write_file};
+use std::path::Path;
+use std::process::Command;
+
+struct Outcome {
+    success: bool,
+    stdout: String,
+    stderr: String,
+}
+
+fn channel_of(file: &Path) -> Outcome {
+    let output = Command::new("bash")
+        .arg(repo_root().join("ci/toolchain-channel.sh"))
+        .arg(file)
+        .output()
+        .expect("bash can run ci/toolchain-channel.sh");
+    Outcome {
+        success: output.status.success(),
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+    }
+}
+
+fn channel_of_text(text: &str) -> Outcome {
+    let scratch = Scratch::new("toolchain-channel");
+    let file = scratch.path().join("rust-toolchain.toml");
+    write_file(&file, text);
+    channel_of(&file)
+}
+
+fn assert_rejected(outcome: &Outcome) {
+    assert!(
+        !outcome.success,
+        "expected failure, stdout:\n{}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.stdout, "");
+    assert!(
+        !outcome.stderr.trim().is_empty(),
+        "expected a message on stderr"
+    );
+}
+
+#[test]
+fn repository_toolchain_file_prints_the_pinned_channel() {
+    let file = repo_root().join("rust-toolchain.toml");
+    let pinned = std::fs::read_to_string(&file)
+        .expect("rust-toolchain.toml is readable")
+        .lines()
+        .find_map(|line| {
+            line.strip_prefix("channel = \"")
+                .and_then(|rest| rest.strip_suffix('"'))
+                .map(str::to_owned)
+        })
+        .expect("rust-toolchain.toml has a `channel = \"...\"` line");
+    let outcome = channel_of(&file);
+    assert!(outcome.success, "stderr:\n{}", outcome.stderr);
+    assert_eq!(outcome.stdout, format!("{pinned}\n"));
+    assert!(
+        pinned
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-')),
+        "pinned channel `{pinned}` has a disallowed character"
+    );
+}
+
+#[test]
+fn single_channel_in_the_toolchain_table_prints_that_value() {
+    let outcome = channel_of_text(
+        "[toolchain]\nchannel = \"1.99.2\"\ncomponents = [\"rustfmt\", \"clippy\"]\n",
+    );
+    assert!(outcome.success, "stderr:\n{}", outcome.stderr);
+    assert_eq!(outcome.stdout.trim_end(), "1.99.2");
+}
+
+#[test]
+fn second_channel_line_under_another_table_is_rejected() {
+    let outcome = channel_of_text(
+        "[toolchain]\nchannel = \"1.100.0\"\n\n[other]\nchannel = \"PATH=/evil\"\n",
+    );
+    assert_rejected(&outcome);
+}
+
+#[test]
+fn channel_value_with_a_disallowed_character_is_rejected() {
+    let outcome = channel_of_text("[toolchain]\nchannel = \"1.100.0;x\"\n");
+    assert_rejected(&outcome);
+}
+
+#[test]
+fn file_without_a_channel_is_rejected() {
+    let outcome = channel_of_text("[toolchain]\ncomponents = [\"rustfmt\"]\n");
+    assert_rejected(&outcome);
+}
+
+#[test]
+fn channel_under_a_commented_other_header_is_rejected() {
+    let outcome = channel_of_text(
+        "[toolchain]\ncomponents = []\n\n[other] # comment\nchannel = \"1.100.0\"\n",
+    );
+    assert_rejected(&outcome);
+}
+
+#[test]
+fn every_valid_toml_spelling_of_the_channel_is_read() {
+    let spellings = [
+        "[ toolchain ]\nchannel = \"1.99.2\"\n",
+        "[toolchain] # pinned\nchannel = \"1.99.2\"\n",
+        "[toolchain]\nchannel=\"1.99.2\"\n",
+        "[toolchain]\nchannel = '1.99.2'\n",
+        "[toolchain]\n\"channel\" = \"1.99.2\"\n",
+        "[toolchain]\nchannel = \"1.99.2\" # pinned\n",
+        "toolchain.channel = \"1.99.2\"\n",
+        "toolchain = { channel = \"1.99.2\" }\n",
+    ];
+    for text in spellings {
+        let outcome = channel_of_text(text);
+        assert!(
+            outcome.success,
+            "input:\n{text}\nstderr:\n{}",
+            outcome.stderr
+        );
+        assert_eq!(outcome.stdout, "1.99.2\n", "input:\n{text}");
+    }
+}
+
+fn assert_rejected_because(text: &str, cause: &str) {
+    let outcome = channel_of_text(text);
+    assert_rejected(&outcome);
+    assert!(
+        outcome.stderr.contains(cause),
+        "input:\n{text}\nexpected stderr to name `{cause}`, got:\n{}",
+        outcome.stderr
+    );
+}
+
+#[test]
+fn two_channel_keys_in_the_toolchain_table_are_refused_as_invalid_toml() {
+    assert_rejected_because(
+        "[toolchain]\nchannel = \"1.1\"\nchannel = \"2.2\"\n",
+        "cannot be read as TOML",
+    );
+}
+
+#[test]
+fn a_channel_only_under_another_table_is_refused_for_that_table() {
+    assert_rejected_because(
+        "[other]\nchannel = \"1.1\"\n",
+        "may contain only the [toolchain] table, found: other",
+    );
+}
+
+#[test]
+fn a_valid_toolchain_channel_beside_another_table_is_refused_for_that_table() {
+    assert_rejected_because(
+        "[toolchain]\nchannel = \"1.1\"\n\n[other]\nchannel = \"2.2\"\n",
+        "may contain only the [toolchain] table, found: other",
+    );
+}
+
+#[test]
+fn a_toolchain_table_without_a_channel_is_refused_as_missing_the_channel() {
+    assert_rejected_because(
+        "[toolchain]\ncomponents = [\"rustfmt\"]\n",
+        "toolchain.channel is missing",
+    );
+}
