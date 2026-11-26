@@ -48,8 +48,8 @@ None.
   an async HTTP server stack, Ed25519 signature verification with PEM public-key parsing, SHA-256,
   and base64. See design.md D1.
 - New configuration read by the binary: `GATEWAY_LISTEN_ADDR` (listen address),
-  `GATEWAY_BOOTSTRAP_KEY_FILE` (path of the bootstrap public key file; default
-  `/run/secrets/bootstrap_operator_public_key`), and `GATEWAY_AUTHORITY` (the authority clients
+  `GATEWAY_BOOTSTRAP_KEY_FILE` (path of the bootstrap public key file; its default is
+  the Docker secret mount path given in design.md D6), and `GATEWAY_AUTHORITY` (the authority clients
   sign for). None of them holds key material.
 - Known limit until CRS-19: replay protection is per gateway instance and is lost on restart, so
   within the 60-second `created` window a captured request could be accepted once more by a second
