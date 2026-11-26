@@ -1,4 +1,4 @@
 [workspace]
 resolver = "2"
-members = ["crates/ci-checks"]
+members = ["crates/ci-checks", "crates/gateway"]
 exclude = ["crates/ci-checks/tests/fixtures"]
