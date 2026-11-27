@@ -64,3 +64,15 @@ async fn layer_inside_a_nested_router_verifies_the_full_received_path() {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     assert_eq!(probe.calls(), 1);
 }
+
+#[tokio::test]
+async fn signed_request_with_a_query_reaches_its_handler() {
+    let f = Fixture::new();
+    let probe = f.probe();
+    let req = Req::new("GET", "/probe").query("a=1&b=2").build();
+
+    let (status, _) = send(&probe.router, req).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(probe.calls(), 1);
+}
