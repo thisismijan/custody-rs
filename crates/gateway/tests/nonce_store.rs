@@ -42,3 +42,12 @@ async fn recording_a_new_nonce_prunes_nonces_past_their_retention() {
     assert!(!store.contains("key", "n1"));
     assert!(store.contains("key", "n2"));
 }
+
+#[tokio::test]
+async fn the_same_nonce_is_accepted_once_for_each_key() {
+    let store = InMemoryNonceStore::new();
+
+    assert!(store.record_if_new("a", "n1", CREATED, CREATED).await);
+    assert!(store.record_if_new("b", "n1", CREATED, CREATED).await);
+    assert!(!store.record_if_new("a", "n1", CREATED, CREATED).await);
+}

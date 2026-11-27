@@ -81,3 +81,15 @@ async fn rejected_request_does_not_use_up_its_nonce() {
     assert_eq!(accepted, StatusCode::OK);
     assert_eq!(probe.calls(), 1);
 }
+
+#[tokio::test]
+async fn signature_expiring_exactly_now_is_rejected() {
+    let f = Fixture::new();
+    let probe = f.probe();
+    let req = Req::new("GET", "/probe").expires(NOW).build();
+
+    let (status, _) = send(&probe.router, req).await;
+
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(probe.calls(), 0);
+}
