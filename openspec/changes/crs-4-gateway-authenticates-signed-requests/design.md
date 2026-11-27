@@ -59,11 +59,12 @@ operator key).
 - Runtime dependencies: `tokio` (multi-thread runtime, net, macros), `axum` (HTTP server and
   router), `ed25519-dalek` with the `pkcs8` and `pem` features (verification and PEM public-key
   parsing), `sha2` (SHA-256), `sfv` (RFC 8941 structured field parsing and
-  serialisation for `Signature-Input`, `Signature` and `Content-Digest`), `serde` and
-  `serde_json`.
+  serialisation for `Signature-Input`, `Signature` and `Content-Digest`), `serde` (to serialise
+  the `/v1/whoami` body).
 - Dev dependencies: `base64` (to encode signatures and digests in the test signer), `tower` (to
-  send requests to the router in-process), `http-body-util` (to
-  read response bodies), and `ed25519-dalek` signing (already the same crate).
+  send requests to the router in-process), `http-body-util` (to read response bodies),
+  `serde_json` (to read JSON response bodies in tests), and `ed25519-dalek` signing (already the
+  same crate).
 - All of these are crates.io crates under licences `deny.toml` already allows. If `cargo deny`
   refuses one (advisory, licence or source), the implementer stops and reports it; `deny.toml` is
   never loosened in this change.
