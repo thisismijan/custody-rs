@@ -101,6 +101,22 @@ impl Fixture {
             calls,
         }
     }
+
+    /// Probe routes whose authentication layer sits inside each `nest`, so the
+    /// layer sees the prefix-stripped URI and must verify the original path.
+    pub fn nested_probe(&self) -> Probe {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let router = Router::new()
+            .nest(
+                "/api",
+                gateway::authenticated(probe_routes(calls.clone()), self.state()),
+            )
+            .nest(
+                "/elsewhere",
+                gateway::authenticated(probe_routes(calls.clone()), self.state()),
+            );
+        Probe { router, calls }
+    }
 }
 
 pub struct Probe {
