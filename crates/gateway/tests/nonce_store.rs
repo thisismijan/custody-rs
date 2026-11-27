@@ -27,3 +27,18 @@ async fn nonce_is_kept_30_seconds_after_its_created_time() {
             .await
     );
 }
+
+#[tokio::test]
+async fn recording_a_new_nonce_prunes_nonces_past_their_retention() {
+    let store = InMemoryNonceStore::new();
+    assert!(store.record_if_new("key", "n1", CREATED, CREATED).await);
+
+    assert!(
+        store
+            .record_if_new("key", "n2", CREATED + 66, CREATED + 66)
+            .await
+    );
+
+    assert!(!store.contains("key", "n1"));
+    assert!(store.contains("key", "n2"));
+}
